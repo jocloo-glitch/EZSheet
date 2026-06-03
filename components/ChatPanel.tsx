@@ -149,7 +149,11 @@ export default function ChatPanel({ sheetContext, onAction, onPreviewAction, dis
 
       <div className="border-t border-gray-700 px-3 py-3 flex gap-2">
         <input
-          className="flex-1 bg-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-500"
+          className={`flex-1 rounded-lg px-3 py-2 text-sm outline-none transition-colors ${
+            disabled
+              ? "bg-gray-700 text-gray-500 placeholder-gray-600"
+              : "bg-gray-600 text-gray-100 placeholder-white/70 border-2 border-indigo-700 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-700"
+          }`}
           placeholder={disabled ? "Load a sheet first..." : "Ask me anything about your sheet..."}
           value={input}
           disabled={disabled || loading}
@@ -159,7 +163,11 @@ export default function ChatPanel({ sheetContext, onAction, onPreviewAction, dis
         <button
           onClick={send}
           disabled={disabled || loading || !input.trim()}
-          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors text-white ${
+            input.trim() && !disabled
+              ? "bg-indigo-600 hover:bg-indigo-500 cursor-pointer"
+              : "bg-gray-700 opacity-40 cursor-not-allowed"
+          }`}
         >
           Send
         </button>

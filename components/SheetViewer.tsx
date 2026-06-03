@@ -1,5 +1,15 @@
 "use client";
 
+function colIndexToLetter(index: number): string {
+  let result = "";
+  let n = index;
+  do {
+    result = String.fromCharCode(65 + (n % 26)) + result;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return result;
+}
+
 interface SheetViewerProps {
   data: string[][];
   loading: boolean;
@@ -29,7 +39,20 @@ export default function SheetViewer({ data, loading, highlightCells }: SheetView
   return (
     <div className="overflow-auto h-full">
       <table className="min-w-full text-sm border-collapse">
-        <thead className="sticky top-0 bg-gray-800 z-10">
+        <thead className="sticky top-0 z-10 bg-gray-800">
+          {/* Column letter row */}
+          <tr>
+            <th className="w-10 px-2 py-1 border border-gray-700" />
+            {headers.map((_, i) => (
+              <th
+                key={i}
+                className="px-3 py-1 text-center text-xs font-bold text-indigo-400 border border-gray-700 whitespace-nowrap tracking-wide"
+              >
+                {colIndexToLetter(i)}
+              </th>
+            ))}
+          </tr>
+          {/* Header name row */}
           <tr>
             <th className="w-10 px-2 py-2 text-gray-400 text-xs font-normal border border-gray-700 text-center">
               #
