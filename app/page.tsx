@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signIn, signOut } from "next-auth/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import ChatPanel from "@/components/ChatPanel";
 import SheetViewer from "@/components/SheetViewer";
 import ChartViewer from "@/components/ChartViewer";
@@ -37,6 +37,7 @@ export default function Home() {
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [urlBarOpen, setUrlBarOpen] = useState(true);
+  const [authError, setAuthError] = useState(false);
 
   // Fold all pending changes to produce the proposed final state
   const proposedData = pendingChanges.reduce(
@@ -89,12 +90,33 @@ export default function Home() {
       }
     : null;
 
-  async function loadSheet() {
+  // Persist sheet URL to localStorage whenever it changes
+  useEffect(() => {
+    if (sheetUrl) localStorage.setItem("ezs-sheet-url", sheetUrl);
+  }, [sheetUrl]);
+
+  // Auto-load saved sheet when session becomes available
+  useEffect(() => {
+    if (!session || spreadsheetId) return;
+    const saved = localStorage.getItem("ezs-sheet-url");
+    if (saved) loadSheet(saved);
+  }, [session]);
+
+  // Surface token refresh failures in the banner
+  useEffect(() => {
+    if (session?.error === "RefreshAccessTokenError") setAuthError(true);
+  }, [session?.error]);
+
+  async function loadSheet(urlOverride?: string) {
+    const url = urlOverride ?? sheetUrl;
+    if (!url.trim()) return;
+    if (urlOverride) setSheetUrl(urlOverride);
+    setAuthError(false);
     setLoadingSheet(true);
     setChart(null);
     try {
       const metaRes = await fetch(
-        `/api/sheets?action=meta&spreadsheetId=${encodeURIComponent(sheetUrl)}`
+        `/api/sheets?action=meta&spreadsheetId=${encodeURIComponent(url)}`
       );
       if (!metaRes.ok) {
         const err = await metaRes.json().catch(() => ({ error: `HTTP ${metaRes.status}` }));
@@ -108,8 +130,8 @@ export default function Home() {
       const firstSheet = meta.sheets?.[0] ?? "";
       setActiveSheet(firstSheet);
 
-      const urlMatch = sheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-      const id = urlMatch ? urlMatch[1] : sheetUrl;
+      const urlMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      const id = urlMatch ? urlMatch[1] : url;
       setSpreadsheetId(id);
 
       await fetchSheetData(id, firstSheet);
@@ -122,7 +144,10 @@ export default function Home() {
     const res = await fetch(
       `/api/sheets?spreadsheetId=${encodeURIComponent(id)}&sheet=${encodeURIComponent(sheet)}`
     );
-    if (!res.ok) return;
+    if (!res.ok) {
+      if (res.status === 401) setAuthError(true);
+      return;
+    }
     const { data } = await res.json();
     setSheetData(data ?? []);
   }
@@ -139,11 +164,16 @@ export default function Home() {
     if (!entry) return;
     setUndoStack((prev) => prev.slice(0, -1));
     for (const item of entry.items) {
-      await fetch("/api/sheets", {
+      const res = await fetch("/api/sheets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update", spreadsheetId, range: item.range, values: item.values }),
       });
+      if (!res.ok) {
+        if (res.status === 401) setAuthError(true);
+        setUndoStack((prev) => [...prev, entry]); // restore undo entry
+        return;
+      }
     }
     setLoadingSheet(true);
     await fetchSheetData(spreadsheetId, activeSheet);
@@ -182,17 +212,24 @@ export default function Home() {
   );
 
   async function confirmPreview() {
+    setAuthError(false);
     const changes = pendingChanges;
     setPendingChanges([]);
 
-    // Save a single undo entry covering all affected ranges
+    // Phase 1: read current values for undo (abort early if auth expired)
     const undoItems: Array<{ range: string; values: string[][] }> = [];
     for (const change of changes) {
       if (change.action.type === "update" && change.action.range) {
         const res = await fetch(
           `/api/sheets?action=range&spreadsheetId=${encodeURIComponent(spreadsheetId)}&range=${encodeURIComponent(change.action.range)}`
         );
-        if (res.ok) {
+        if (!res.ok) {
+          if (res.status === 401) {
+            setAuthError(true);
+            setPendingChanges(changes); // restore so user can retry after re-auth
+            return;
+          }
+        } else {
           const { data } = await res.json();
           undoItems.push({ range: change.action.range, values: data });
         }
@@ -202,11 +239,11 @@ export default function Home() {
       setUndoStack((prev) => [...prev.slice(-9), { label: "Applied changes", items: undoItems }]);
     }
 
-    // Apply all changes then refresh once
-    for (const change of changes) {
-      change.onApply();
+    // Phase 2: write changes — only mark as applied after confirmed success
+    for (let i = 0; i < changes.length; i++) {
+      const change = changes[i];
       const { action } = change;
-      await fetch("/api/sheets", {
+      const res = await fetch("/api/sheets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -216,7 +253,17 @@ export default function Home() {
           values: action.values,
         }),
       });
+      if (!res.ok) {
+        if (res.status === 401) setAuthError(true);
+        // Cancel this and all remaining unwritten changes
+        changes.slice(i).forEach((c) => c.onCancel());
+        // Restore any unwritten changes as pending
+        setPendingChanges(changes.slice(i));
+        break;
+      }
+      change.onApply(); // only after confirmed write
     }
+
     setLoadingSheet(true);
     await fetchSheetData(spreadsheetId, activeSheet);
     setLoadingSheet(false);
@@ -296,7 +343,7 @@ export default function Home() {
               onKeyDown={(e) => e.key === "Enter" && loadSheet()}
             />
             <button
-              onClick={loadSheet}
+              onClick={() => loadSheet()}
               disabled={!sheetUrl.trim() || loadingSheet}
               className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors"
             >
@@ -329,6 +376,18 @@ export default function Home() {
           <span>{urlBarOpen ? "Hide URL bar" : "Load a sheet"}</span>
         </button>
       </div>
+
+      {(authError || session?.error === "RefreshAccessTokenError") && (
+        <div className="flex items-center justify-between px-4 py-2 bg-red-900/60 border-b border-red-700 text-red-200 text-sm shrink-0">
+          <span>⚠ Session expired — changes were not saved. Please sign back in.</span>
+          <button
+            onClick={() => signOut()}
+            className="ml-4 underline hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Chat */}
