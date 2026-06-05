@@ -111,6 +111,7 @@ export default function ChatPanel({ sheetContext, onAction, onPreviewAction, dis
   function describeAction(action: ChatAction): string {
     if (action.type === "read") return "Refreshing sheet data...";
     if (action.type === "undo") return "Undoing last change...";
+    if (action.type === "cancel_pending") return action.text ?? "Staged changes cancelled. You can also use the Cancel button at any time.";
     if (action.type === "chart") return `Creating ${action.chartType} chart${action.title ? `: ${action.title}` : ""}.`;
     return "Done.";
   }

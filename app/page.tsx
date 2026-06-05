@@ -196,6 +196,13 @@ export default function Home() {
         await handleUndo();
         return;
       }
+      if (action.type === "cancel_pending") {
+        setPendingChanges((prev) => {
+          prev.forEach((c) => c.onCancel());
+          return [];
+        });
+        return;
+      }
       if (action.type === "chart" && action.chartType) {
         setChart({ chartType: action.chartType, data: sheetData, title: action.title });
       }
@@ -419,48 +426,42 @@ export default function Home() {
 
         {/* Right: Sheet or split preview */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Sheet/preview header — always visible */}
-          <div className="px-4 py-2 border-b border-gray-700 bg-gray-800 shrink-0 flex items-center gap-3">
-            {/* Label — always a div to prevent element-type swap triggering repaint loss */}
-            <div className="flex items-center gap-2">
-              {hasPending ? (
-                <>
-                  <span className="text-xs font-semibold text-green-400 uppercase tracking-wide">Proposed</span>
-                  <span className="text-gray-600 text-xs">/</span>
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Current</span>
-                  <span className="ml-1 w-2 h-2 rounded-full bg-amber-400 inline-block animate-pulse" />
-                </>
-              ) : (
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                  {activeSheet || "Sheet"}
-                </span>
-              )}
-            </div>
-            {/* Buttons — own shrink-0 container so they can never be squeezed out */}
-            <div className="flex gap-2 shrink-0">
-              <button
-                onClick={clearChanges}
-                disabled={!hasPending}
-                className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-200 px-3 py-1 rounded text-xs font-medium transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmPreview}
-                disabled={!hasPending}
-                className="bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs font-medium transition-colors"
-              >
-                Apply to Sheet
-              </button>
-            </div>
+          {/* Sheet/preview header — label only, no buttons */}
+          <div className="px-4 py-2 border-b border-gray-700 bg-gray-800 shrink-0 flex items-center gap-2">
+            {hasPending ? (
+              <>
+                <span className="text-xs font-semibold text-green-400 uppercase tracking-wide">Proposed</span>
+                <span className="text-gray-600 text-xs">/</span>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Current</span>
+                <span className="ml-1 w-2 h-2 rounded-full bg-amber-400 inline-block animate-pulse" />
+              </>
+            ) : (
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                {activeSheet || "Sheet"}
+              </span>
+            )}
           </div>
 
           {hasPending && previewHighlightSet ? (
             <>
               {/* Proposed (top half) */}
               <div className="flex-1 flex flex-col overflow-hidden border-b border-gray-700">
-                <div className="px-3 py-1 bg-green-900/20 border-b border-green-800/40 shrink-0">
+                <div className="px-3 py-1 bg-green-900/20 border-b border-green-800/40 shrink-0 flex items-center justify-between">
                   <span className="text-green-400 text-xs font-semibold uppercase tracking-wide">Proposed</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={clearChanges}
+                      className="bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-0.5 rounded text-xs font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmPreview}
+                      className="bg-green-600 hover:bg-green-500 text-white px-3 py-0.5 rounded text-xs font-medium transition-colors"
+                    >
+                      Apply to Sheet
+                    </button>
+                  </div>
                 </div>
                 <div className="flex-1 overflow-auto">
                   <SheetViewer data={proposedData} loading={false} highlightCells={previewHighlightSet} />

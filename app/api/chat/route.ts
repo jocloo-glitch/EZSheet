@@ -10,6 +10,7 @@ Available actions:
 - { "type": "append", "range": "Sheet1!A:A", "values": [["row1col1","row1col2"]] } — add rows
 - { "type": "chart", "chartType": "bar"|"line"|"pie", "dataRange": "A1:B10", "title": "My Chart" } — create a chart from sheet data
 - { "type": "undo" } — undo the last change made to the sheet
+- { "type": "cancel_pending", "text": "..." } — discard all staged pending changes. Use when the user says to revert, cancel, undo proposed changes, or not apply staged edits. Include a short explanation in "text".
 - { "type": "message", "text": "..." } — reply with information when no sheet action is needed
 
 Always respond with a single JSON object. If the request is ambiguous, ask for clarification using { "type": "message", "text": "..." }.
