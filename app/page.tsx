@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect } from "react";
 import ChatPanel from "@/components/ChatPanel";
 import SheetViewer from "@/components/SheetViewer";
 import ChartViewer from "@/components/ChartViewer";
-import { rangeToHighlightSet, applyChangesToData, colIndexToLetter } from "@/lib/sheet-utils";
+import { rangeToHighlightSet, applyChangesToData, colIndexToLetter, parseRangeStart } from "@/lib/sheet-utils";
 
 interface ChartState {
   chartType: "bar" | "line" | "pie";
@@ -16,6 +16,7 @@ interface ChartState {
 interface UndoEntry {
   label: string;
   items: Array<{ range: string; values: string[][] }>;
+  highlightSet: Set<string>;
 }
 
 interface PendingChange {
@@ -38,6 +39,8 @@ export default function Home() {
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [urlBarOpen, setUrlBarOpen] = useState(true);
   const [authError, setAuthError] = useState(false);
+  const [undoHoverHighlight, setUndoHoverHighlight] = useState<Set<string> | null>(null);
+  const [scrollToRow, setScrollToRow] = useState<number | undefined>();
 
   // Fold all pending changes to produce the proposed final state
   const proposedData = pendingChanges.reduce(
@@ -135,6 +138,7 @@ export default function Home() {
       setSpreadsheetId(id);
 
       await fetchSheetData(id, firstSheet);
+      setUrlBarOpen(false);
     } finally {
       setLoadingSheet(false);
     }
@@ -236,7 +240,10 @@ export default function Home() {
       }
     }
     if (undoItems.length > 0) {
-      setUndoStack((prev) => [...prev.slice(-9), { label: "Applied changes", items: undoItems }]);
+      const highlightSet = new Set<string>(
+        undoItems.flatMap((item) => [...rangeToHighlightSet(item.range, item.values)])
+      );
+      setUndoStack((prev) => [...prev.slice(-9), { label: "Applied changes", items: undoItems, highlightSet }]);
     }
 
     // Phase 2: write changes — only mark as applied after confirmed success
@@ -264,6 +271,12 @@ export default function Home() {
       change.onApply(); // only after confirmed write
     }
 
+    const firstRange = changes.find((c) => c.action.range)?.action.range;
+    if (firstRange) {
+      const start = parseRangeStart(firstRange);
+      if (start) setScrollToRow(start.startRow);
+    }
+
     setLoadingSheet(true);
     await fetchSheetData(spreadsheetId, activeSheet);
     setLoadingSheet(false);
@@ -286,7 +299,7 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gray-900 gap-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-2">EZS</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">EZSheet</h1>
           <p className="text-gray-400">Chat with your Google Sheets</p>
         </div>
         <button
@@ -311,18 +324,19 @@ export default function Home() {
     <div className="flex flex-col h-screen bg-gray-900 text-gray-100">
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800 shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-white">EZS</h1>
+          <h1 className="text-lg font-bold text-white">EZSheet</h1>
           {sheetTitle && <span className="text-gray-400 text-sm">/ {sheetTitle}</span>}
         </div>
         <div className="flex items-center gap-3">
           {undoStack.length > 0 && (
             <button
               onClick={handleUndo}
+              onMouseEnter={() => setUndoHoverHighlight(undoStack[undoStack.length - 1]?.highlightSet ?? null)}
+              onMouseLeave={() => setUndoHoverHighlight(null)}
               title={`Undo: ${undoStack[undoStack.length - 1]?.label}`}
               className="flex items-center gap-1.5 text-sm text-white bg-amber-600 hover:bg-amber-500 px-3 py-1.5 rounded transition-colors"
             >
               ↩ Undo
-              <span className="text-xs text-white">({undoStack[undoStack.length - 1]?.label})</span>
             </button>
           )}
           <span className="text-sm text-gray-400">{session.user?.email}</span>
@@ -373,7 +387,7 @@ export default function Home() {
           <svg className={`w-3 h-3 transition-transform ${urlBarOpen ? "" : "rotate-180"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
           </svg>
-          <span>{urlBarOpen ? "Hide URL bar" : "Load a sheet"}</span>
+          <span>{urlBarOpen ? "Hide URL bar" : spreadsheetId ? "Load a new sheet / Change sheets" : "Load a sheet"}</span>
         </button>
       </div>
 
@@ -462,7 +476,7 @@ export default function Home() {
             </>
           ) : (
             <div className="flex-1 overflow-auto p-4">
-              <SheetViewer data={sheetData} loading={loadingSheet} />
+              <SheetViewer data={sheetData} loading={loadingSheet} highlightCells={undoHoverHighlight ?? undefined} scrollToRow={scrollToRow} />
               {chart && (
                 <ChartViewer chartType={chart.chartType} data={chart.data} title={chart.title} />
               )}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useEffect } from "react";
+
 function colIndexToLetter(index: number): string {
   let result = "";
   let n = index;
@@ -14,9 +16,21 @@ interface SheetViewerProps {
   data: string[][];
   loading: boolean;
   highlightCells?: Set<string>;
+  scrollToRow?: number;
 }
 
-export default function SheetViewer({ data, loading, highlightCells }: SheetViewerProps) {
+export default function SheetViewer({ data, loading, highlightCells, scrollToRow }: SheetViewerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!scrollToRow || !containerRef.current) return;
+    const rows = containerRef.current.querySelectorAll("tbody tr");
+    const rowIndex = scrollToRow - 2; // sheet row N → tbody index N-2
+    if (rowIndex >= 0 && rows[rowIndex]) {
+      rows[rowIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [scrollToRow]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
@@ -37,10 +51,9 @@ export default function SheetViewer({ data, loading, highlightCells }: SheetView
   const rows = data.slice(1);
 
   return (
-    <div className="overflow-auto h-full">
+    <div ref={containerRef} className="overflow-auto h-full">
       <table className="min-w-full text-sm border-collapse">
         <thead className="sticky top-0 z-10 bg-gray-800">
-          {/* Column letter row */}
           <tr>
             <th className="w-10 px-2 py-1 border border-gray-700" />
             {headers.map((_, i) => (
@@ -52,7 +65,6 @@ export default function SheetViewer({ data, loading, highlightCells }: SheetView
               </th>
             ))}
           </tr>
-          {/* Header name row */}
           <tr>
             <th className="w-10 px-2 py-2 text-gray-400 text-xs font-normal border border-gray-700 text-center">
               #

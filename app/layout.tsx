@@ -6,7 +6,7 @@ import Providers from "./providers";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EZS — Chat with Google Sheets",
+  title: "EZSheet — Chat with Google Sheets",
   description: "AI-powered Google Sheets interface",
 };
 
