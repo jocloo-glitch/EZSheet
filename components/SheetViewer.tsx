@@ -17,19 +17,28 @@ interface SheetViewerProps {
   loading: boolean;
   highlightCells?: Set<string>;
   scrollToRow?: number;
+  scrollToCol?: number;
+  minCols?: number;
 }
 
-export default function SheetViewer({ data, loading, highlightCells, scrollToRow }: SheetViewerProps) {
+export default function SheetViewer({ data, loading, highlightCells, scrollToRow, scrollToCol, minCols }: SheetViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!scrollToRow || !containerRef.current) return;
     const rows = containerRef.current.querySelectorAll("tbody tr");
-    const rowIndex = scrollToRow - 2; // sheet row N → tbody index N-2
-    if (rowIndex >= 0 && rows[rowIndex]) {
-      rows[rowIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+    const rowIndex = scrollToRow - 2;
+    if (rowIndex < 0 || !rows[rowIndex]) return;
+    if (scrollToCol !== undefined) {
+      const cells = rows[rowIndex].querySelectorAll("td");
+      const cell = cells[scrollToCol + 1]; // +1 for row-number cell
+      if (cell) {
+        cell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        return;
+      }
     }
-  }, [scrollToRow]);
+    rows[rowIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [scrollToRow, scrollToCol]);
 
   if (loading) {
     return (
@@ -49,8 +58,7 @@ export default function SheetViewer({ data, loading, highlightCells, scrollToRow
 
   const headers = data[0];
   const rows = data.slice(1);
-  // Show all columns that have data anywhere, even if the header row is shorter
-  const maxCols = Math.max(headers.length, ...rows.map((r) => r.length));
+  const maxCols = Math.max(headers.length, ...rows.map((r) => r.length), minCols ?? 0);
   const displayHeaders = Array.from({ length: maxCols }, (_, i) => headers[i] ?? "");
 
   return (
@@ -60,23 +68,15 @@ export default function SheetViewer({ data, loading, highlightCells, scrollToRow
           <tr>
             <th className="w-10 px-2 py-1 border border-gray-700" />
             {displayHeaders.map((_, i) => (
-              <th
-                key={i}
-                className="px-3 py-1 text-center text-xs font-bold text-indigo-400 border border-gray-700 whitespace-nowrap tracking-wide"
-              >
+              <th key={i} className="px-3 py-1 text-center text-xs font-bold text-indigo-400 border border-gray-700 whitespace-nowrap tracking-wide">
                 {colIndexToLetter(i)}
               </th>
             ))}
           </tr>
           <tr>
-            <th className="w-10 px-2 py-2 text-gray-400 text-xs font-normal border border-gray-700 text-center">
-              #
-            </th>
+            <th className="w-10 px-2 py-2 text-gray-400 text-xs font-normal border border-gray-700 text-center">#</th>
             {displayHeaders.map((h, i) => (
-              <th
-                key={i}
-                className="px-3 py-2 text-left font-semibold text-gray-200 border border-gray-700 whitespace-nowrap"
-              >
+              <th key={i} className="px-3 py-2 text-left font-semibold text-gray-200 border border-gray-700 whitespace-nowrap">
                 {h}
               </th>
             ))}
@@ -85,9 +85,7 @@ export default function SheetViewer({ data, loading, highlightCells, scrollToRow
         <tbody>
           {rows.map((row, ri) => (
             <tr key={ri} className="hover:bg-gray-750 even:bg-gray-800/40">
-              <td className="px-2 py-1.5 text-gray-500 text-xs border border-gray-700 text-center">
-                {ri + 2}
-              </td>
+              <td className="px-2 py-1.5 text-gray-500 text-xs border border-gray-700 text-center">{ri + 2}</td>
               {displayHeaders.map((_, ci) => {
                 const highlighted = highlightCells?.has(`${ri + 2},${ci}`);
                 return (

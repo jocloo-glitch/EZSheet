@@ -41,6 +41,7 @@ export default function Home() {
   const [authError, setAuthError] = useState(false);
   const [undoHoverHighlight, setUndoHoverHighlight] = useState<Set<string> | null>(null);
   const [scrollToRow, setScrollToRow] = useState<number | undefined>();
+  const [scrollToCol, setScrollToCol] = useState<number | undefined>();
 
   // Fold all pending changes to produce the proposed final state
   const proposedData = pendingChanges.reduce(
@@ -281,7 +282,10 @@ export default function Home() {
     const firstRange = changes.find((c) => c.action.range)?.action.range;
     if (firstRange) {
       const start = parseRangeStart(firstRange);
-      if (start) setScrollToRow(start.startRow);
+      if (start) {
+        setScrollToRow(start.startRow);
+        setScrollToCol(start.startCol);
+      }
     }
 
     setLoadingSheet(true);
@@ -327,8 +331,13 @@ export default function Home() {
 
   const hasPending = pendingChanges.length > 0;
 
+  // Ensure Proposed and Current always show the same column count
+  const splitViewCols = hasPending
+    ? Math.max(...proposedData.map((r) => r.length), ...sheetData.map((r) => r.length))
+    : undefined;
+
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-gray-100">
+    <div className="flex flex-col bg-gray-900 text-gray-100" style={{ height: "100dvh" }}>
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800 shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-white">EZSheet</h1>
@@ -464,7 +473,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-auto">
-                  <SheetViewer data={proposedData} loading={false} highlightCells={previewHighlightSet} />
+                  <SheetViewer data={proposedData} loading={false} highlightCells={previewHighlightSet} scrollToRow={scrollToRow} scrollToCol={scrollToCol} minCols={splitViewCols} />
                 </div>
               </div>
               {/* Current (bottom half) */}
@@ -473,13 +482,13 @@ export default function Home() {
                   <span className="text-gray-400 text-xs font-semibold uppercase tracking-wide">Current</span>
                 </div>
                 <div className="flex-1 overflow-auto">
-                  <SheetViewer data={sheetData} loading={false} highlightCells={undoHoverHighlight ?? previewHighlightSet} />
+                  <SheetViewer data={sheetData} loading={false} highlightCells={undoHoverHighlight ?? previewHighlightSet} minCols={splitViewCols} />
                 </div>
               </div>
             </>
           ) : (
             <div className="flex-1 overflow-auto p-4">
-              <SheetViewer data={sheetData} loading={loadingSheet} highlightCells={undoHoverHighlight ?? undefined} scrollToRow={scrollToRow} />
+              <SheetViewer data={sheetData} loading={loadingSheet} highlightCells={undoHoverHighlight ?? undefined} scrollToRow={scrollToRow} scrollToCol={scrollToCol} />
               {chart && (
                 <ChartViewer chartType={chart.chartType} data={chart.data} title={chart.title} />
               )}
