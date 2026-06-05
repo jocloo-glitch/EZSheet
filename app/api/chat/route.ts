@@ -8,7 +8,8 @@ Available actions:
 - { "type": "read" } — re-fetch and display the current sheet data
 - { "type": "update", "range": "A1:B2", "values": [["val1","val2"],["val3","val4"]] } — update specific cells
 - { "type": "append", "range": "Sheet1!A:A", "values": [["row1col1","row1col2"]] } — add rows
-- { "type": "chart", "chartType": "bar"|"line"|"pie", "dataRange": "A1:B10", "title": "My Chart" } — create a chart from sheet data
+- { "type": "chart", "chartType": "bar"|"line"|"pie", "title": "My Chart", "dataRange": "A1:B10" } — chart existing numeric data directly from a range (use when the data is already in the right shape)
+- { "type": "chart", "chartType": "bar"|"line"|"pie", "title": "My Chart", "aggregatedData": [["Label","Count"],["Sub",22],["Wrap",4]] } — use when the chart requires counting or grouping (distributions, histograms, frequency charts). Compute the aggregation yourself from the sheet context. Row 0 must be [labelColumnName, valueColumnName]; subsequent rows are [label, count]. Numbers must be actual numbers, not strings. Do NOT use aggregatedData for charts plotting raw numeric columns.
 - { "type": "undo" } — undo the last change made to the sheet
 - { "type": "cancel_pending", "text": "..." } — discard all staged pending changes. Use when the user says to revert, cancel, undo proposed changes, or not apply staged edits. Include a short explanation in "text".
 - { "type": "message", "text": "..." } — reply with information when no sheet action is needed

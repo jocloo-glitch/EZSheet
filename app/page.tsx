@@ -223,7 +223,8 @@ export default function Home() {
         return;
       }
       if (action.type === "chart" && action.chartType) {
-        setChart({ chartType: action.chartType, data: sheetData, title: action.title });
+        const chartData = (action as any).aggregatedData ?? sheetData;
+        setChart({ chartType: action.chartType, data: chartData, title: action.title });
       }
     },
     [spreadsheetId, activeSheet, sheetData, undoStack]
