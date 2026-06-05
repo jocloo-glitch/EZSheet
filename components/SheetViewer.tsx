@@ -49,6 +49,9 @@ export default function SheetViewer({ data, loading, highlightCells, scrollToRow
 
   const headers = data[0];
   const rows = data.slice(1);
+  // Show all columns that have data anywhere, even if the header row is shorter
+  const maxCols = Math.max(headers.length, ...rows.map((r) => r.length));
+  const displayHeaders = Array.from({ length: maxCols }, (_, i) => headers[i] ?? "");
 
   return (
     <div ref={containerRef} className="overflow-auto h-full">
@@ -56,7 +59,7 @@ export default function SheetViewer({ data, loading, highlightCells, scrollToRow
         <thead className="sticky top-0 z-10 bg-gray-800">
           <tr>
             <th className="w-10 px-2 py-1 border border-gray-700" />
-            {headers.map((_, i) => (
+            {displayHeaders.map((_, i) => (
               <th
                 key={i}
                 className="px-3 py-1 text-center text-xs font-bold text-indigo-400 border border-gray-700 whitespace-nowrap tracking-wide"
@@ -69,7 +72,7 @@ export default function SheetViewer({ data, loading, highlightCells, scrollToRow
             <th className="w-10 px-2 py-2 text-gray-400 text-xs font-normal border border-gray-700 text-center">
               #
             </th>
-            {headers.map((h, i) => (
+            {displayHeaders.map((h, i) => (
               <th
                 key={i}
                 className="px-3 py-2 text-left font-semibold text-gray-200 border border-gray-700 whitespace-nowrap"
@@ -85,7 +88,7 @@ export default function SheetViewer({ data, loading, highlightCells, scrollToRow
               <td className="px-2 py-1.5 text-gray-500 text-xs border border-gray-700 text-center">
                 {ri + 2}
               </td>
-              {headers.map((_, ci) => {
+              {displayHeaders.map((_, ci) => {
                 const highlighted = highlightCells?.has(`${ri + 2},${ci}`);
                 return (
                   <td
