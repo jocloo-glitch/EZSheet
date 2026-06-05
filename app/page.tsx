@@ -42,6 +42,7 @@ export default function Home() {
   const [undoHoverHighlight, setUndoHoverHighlight] = useState<Set<string> | null>(null);
   const [scrollToRow, setScrollToRow] = useState<number | undefined>();
   const [scrollToCol, setScrollToCol] = useState<number | undefined>();
+  const [externalUpdate, setExternalUpdate] = useState(false);
 
   // Fold all pending changes to produce the proposed final state
   const proposedData = pendingChanges.reduce(
@@ -110,6 +111,23 @@ export default function Home() {
   useEffect(() => {
     if (session?.error === "RefreshAccessTokenError") setAuthError(true);
   }, [session?.error]);
+
+  // Poll for external changes every 30 seconds
+  useEffect(() => {
+    if (!spreadsheetId || !session) return;
+    const interval = setInterval(async () => {
+      if (loadingSheet || pendingChanges.length > 0) return;
+      const res = await fetch(
+        `/api/sheets?spreadsheetId=${encodeURIComponent(spreadsheetId)}&sheet=${encodeURIComponent(activeSheet)}`
+      );
+      if (!res.ok) return;
+      const { data } = await res.json();
+      if (data && JSON.stringify(data) !== JSON.stringify(sheetData)) {
+        setExternalUpdate(true);
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [spreadsheetId, activeSheet, session, sheetData, loadingSheet, pendingChanges.length]);
 
   async function loadSheet(urlOverride?: string) {
     const url = urlOverride ?? sheetUrl;
@@ -248,8 +266,11 @@ export default function Home() {
       }
     }
     if (undoItems.length > 0) {
+      // Use pending change values (always correct shape) — original values from API may be empty for blank cells
       const highlightSet = new Set<string>(
-        undoItems.flatMap((item) => [...rangeToHighlightSet(item.range, item.values)])
+        changes
+          .filter((c) => c.action.type === "update" && c.action.range && c.action.values)
+          .flatMap((c) => [...rangeToHighlightSet(c.action.range!, c.action.values!)])
       );
       setUndoStack((prev) => [...prev.slice(-9), { label: "Applied changes", items: undoItems, highlightSet }]);
     }
@@ -342,6 +363,17 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-white">EZSheet</h1>
           {sheetTitle && <span className="text-gray-400 text-sm">/ {sheetTitle}</span>}
+          {spreadsheetId && (
+            <button
+              onClick={() => fetchSheetData(spreadsheetId, activeSheet)}
+              title="Reload sheet"
+              className="text-gray-500 hover:text-gray-200 transition-colors p-1 rounded"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {undoStack.length > 0 && (
@@ -406,6 +438,21 @@ export default function Home() {
           <span>{urlBarOpen ? "Hide URL bar" : spreadsheetId ? "Load a new sheet / Change sheets" : "Load a sheet"}</span>
         </button>
       </div>
+
+      {externalUpdate && (
+        <div className="flex items-center justify-between px-4 py-2 bg-blue-900/50 border-b border-blue-700 text-blue-200 text-sm shrink-0">
+          <span>Sheet was updated in Google Sheets.</span>
+          <div className="flex gap-3">
+            <button
+              onClick={() => { fetchSheetData(spreadsheetId, activeSheet); setExternalUpdate(false); }}
+              className="underline hover:text-white transition-colors font-medium"
+            >
+              Refresh
+            </button>
+            <button onClick={() => setExternalUpdate(false)} className="text-blue-400 hover:text-white transition-colors">✕</button>
+          </div>
+        </div>
+      )}
 
       {(authError || session?.error === "RefreshAccessTokenError") && (
         <div className="flex items-center justify-between px-4 py-2 bg-red-900/60 border-b border-red-700 text-red-200 text-sm shrink-0">

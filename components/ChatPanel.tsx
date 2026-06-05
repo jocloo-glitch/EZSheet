@@ -171,20 +171,6 @@ export default function ChatPanel({ sheetContext, onAction, onPreviewAction, dis
         <div className="px-3 pb-1 text-xs text-amber-400">Voice input requires Chrome or Edge</div>
       )}
       <div className="border-t border-gray-700 px-3 py-3 flex gap-2">
-        <button
-          onClick={startVoice}
-          disabled={disabled || loading}
-          title="Voice input"
-          className={`p-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-            listening
-              ? "bg-red-600 animate-pulse text-white"
-              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-          }`}
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm7 8a1 1 0 0 1 1 1 8 8 0 0 1-7 7.938V22h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-2.062A8 8 0 0 1 4 12a1 1 0 0 1 2 0 6 6 0 0 0 12 0 1 1 0 0 1 1-1z"/>
-          </svg>
-        </button>
         <input
           className={`flex-1 rounded-lg px-3 py-2 text-sm outline-none transition-colors ${
             disabled
@@ -197,6 +183,20 @@ export default function ChatPanel({ sheetContext, onAction, onPreviewAction, dis
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
         />
+        <button
+          onClick={startVoice}
+          disabled={disabled || loading}
+          title="Voice input"
+          className={`p-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            listening
+              ? "bg-red-600 animate-pulse text-white"
+              : "bg-indigo-600 hover:bg-indigo-500 text-white"
+          }`}
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm7 8a1 1 0 0 1 1 1 8 8 0 0 1-7 7.938V22h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-2.062A8 8 0 0 1 4 12a1 1 0 0 1 2 0 6 6 0 0 0 12 0 1 1 0 0 1 1-1z"/>
+          </svg>
+        </button>
         <button
           onClick={send}
           disabled={disabled || loading || !input.trim()}
